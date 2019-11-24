@@ -20,7 +20,8 @@ class ServiceWatcher():
     when the class is instaciated it will check the switch status
     and if it differs from the actual status it will change it
     '''
-    flash_freq = 0.1
+    flash_freq = 0.1 # interval in seconds of flashing while service is canging
+    service_timeout = 60 # seconds while we're waiting for the service status to change
 
     def __init__(self, procname, sw_port, led_port):
         self.procname = procname
@@ -46,14 +47,17 @@ class ServiceWatcher():
     def _stop_service(self):
         output = subprocess.run(['service', self.procname, 'stop'],
                        stdout=subprocess.PIPE).stdout.decode('utf-8')
+        self._watch_loop('inactive')
         logger.debug(output)
 
     def _start_service(self):
         output = subprocess.run(['service', self.procname, 'start'],
                        stdout=subprocess.PIPE).stdout.decode('utf-8')
+        self._watch_loop('active')
         logger.debug(output)
 
     def update_service(self):
+        '''Sets the service status to match the switch status'''
         if self.switch_status and self._system_status == 'inactive':
             self._start_service()
         elif not self.switch_status and self._system_status != 'inactive':
@@ -62,11 +66,16 @@ class ServiceWatcher():
 
     def _watch_loop(self, desired_state):
         '''Loops '''
+        count = 0
         led_state = True
         while self._system_status != desired_state:
             self.update_led(led_state)
-            led_state = ! led_state
+            led_state = not led_state
             time.sleep(self.flash_freq)
+            count += 1
+            if count > (self.service_timeout/self.flash_freq):
+                raise Exception("timed out waiting for {}".format(self.procname))
+        self.update_led(self._system_status == 'active')
 
 
     def update_led(self, state):
