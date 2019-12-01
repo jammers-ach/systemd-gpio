@@ -1,7 +1,4 @@
 services:
     - name: openvpn
-      input: 2
-      output: 2
-    - name: samba
-      input: 10
-      output: 2
+      input: 11
+      output: 12
